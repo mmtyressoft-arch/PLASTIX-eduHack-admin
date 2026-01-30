@@ -15,11 +15,17 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
   const predictions = db.ml_predictions || [];
 
   const handlePredict = async (student: any) => {
+    // Check for API KEY before starting
+    const apiKey = (window as any).process?.env?.API_KEY || (process?.env?.API_KEY);
+    if (!apiKey) {
+      alert("AI Configuration missing. Please ensure API_KEY is set in your environment variables.");
+      return;
+    }
+
     setIsPredicting(student.id);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       
-      // Collect metrics for this student
       const studentAttendance = db.attendance?.filter((a: any) => a.student_id === student.id) || [];
       const studentGrades = db.grades?.filter((g: any) => g.student_id === student.id) || [];
       
@@ -59,7 +65,6 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
 
       const predictionData = JSON.parse(response.text);
       
-      // Save to Supabase
       const { error } = await supabase.from('ml_predictions').insert([{
         student_id: student.id,
         predicted_gpa: predictionData.predicted_gpa,
@@ -105,23 +110,24 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {students.map((student: any) => {
-          const prediction = predictions.find((p: any) => p.student_id === student.id);
+        {students.length > 0 ? students.map((student: any) => {
+          const studentPredictions = predictions.filter((p: any) => p.student_id === student.id);
+          const prediction = studentPredictions[studentPredictions.length - 1]; // Get latest
           const isAtRisk = prediction?.risk_level === 'High' || prediction?.risk_level === 'Medium';
 
           return (
             <div key={student.id} className={`p-5 rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${isAtRisk ? 'ring-2 ring-red-100' : ''}`}>
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-bold text-slate-900">{student.name}</h3>
+                <div className="max-w-[140px]">
+                  <h3 className="font-bold text-slate-900 truncate" title={student.name}>{student.name}</h3>
                   <p className="text-xs text-slate-500 font-medium uppercase">{student.reg_no}</p>
                 </div>
                 {prediction ? (
-                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${getRiskStyles(prediction.risk_level)}`}>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${getRiskStyles(prediction.risk_level)}`}>
                     {prediction.risk_level} Risk
                   </span>
                 ) : (
-                  <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase border bg-slate-50 text-slate-400">
+                  <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase border bg-slate-50 text-slate-400 whitespace-nowrap">
                     No Forecast
                   </span>
                 )}
@@ -129,7 +135,7 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
 
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-slate-50 p-3 rounded-xl text-center">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Current CGPA</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Current GPA</p>
                   <p className="text-xl font-bold text-slate-800">{student.cgpa}</p>
                 </div>
                 <div className="bg-indigo-50 p-3 rounded-xl text-center border border-indigo-100">
@@ -151,7 +157,7 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
                       <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                       AI Insight
                     </p>
-                    {prediction.recommendation}
+                    <span className="line-clamp-3">{prediction.recommendation}</span>
                   </div>
                 </div>
               )}
@@ -179,7 +185,11 @@ const Forecasting: React.FC<ForecastingProps> = ({ db, onRefresh }) => {
               </button>
             </div>
           );
-        })}
+        }) : (
+          <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+            <p className="text-slate-400 italic">No students found in the database. Add some to start forecasting.</p>
+          </div>
+        )}
       </div>
     </div>
   );
