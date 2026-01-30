@@ -1,0 +1,7 @@
+{
+  "name": "EduAdmin Pro - Database Management System",
+  "description": "A comprehensive administrative dashboard for managing academic data including students, faculty, courses, and performance metrics with full CRUD capabilities.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
